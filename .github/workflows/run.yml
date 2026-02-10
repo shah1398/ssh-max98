@@ -2,7 +2,7 @@ name: Ping & Base64 Automation
 
 on:
   schedule:
-    - cron: '0 */12 * * *'  # هر 12 ساعت
+    - cron: '*/8 * * * *'  # هر 12 ساعت
   workflow_dispatch:
 
 jobs:
