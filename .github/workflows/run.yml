@@ -1,0 +1,24 @@
+name: Ping & Base64 Automation
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'  # هر 12 ساعت
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: pip install ping3 requests
+
+      - name: Run Main Script
+        run: python3 main.py
