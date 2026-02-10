@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+import os
+import json
+import base64
+import requests
+
+# ================== PATHS ==================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+INPUT_FILE = os.path.join(BASE_DIR, "input.txt")
+OUTPUT_FILE = os.path.join(BASE_DIR, "base64.txt")
+
+# ================== HELPERS (دستورات Base64 دقیقاً همون قبلی) ==================
+def b64e(s: str) -> str:
+    return base64.b64encode(s.encode()).decode()
+
+def fix_vmess(link):
+    try:
+        raw = link.replace("vmess://", "")
+        j = json.loads(base64.b64decode(raw + "===").decode())
+        clean = json.dumps(j, separators=(",", ":"))
+        return "vmess://" + b64e(clean)
+    except Exception:
+        return None
+
+def fix_ss(link):
+    try:
+        raw = link.replace("ss://", "").split("#")[0]
+        base64.b64decode(raw + "===")
+        return "ss://" + raw
+    except Exception:
+        try:
+            return "ss://" + b64e(raw)
+        except Exception:
+            return None
+
+def normalize(line):
+    line = line.strip()
+    if not line:
+        return None
+
+    if line.startswith("vmess://"):
+        return fix_vmess(line)
+    if line.startswith("ss://"):
+        return fix_ss(line)
+    if line.startswith((
+        "vless://", "trojan://", "hysteria://", "hysteria2://",
+        "tuic://", "socks://", "http://", "https://"
+    )):
+        return line
+    return None
+
+# ================== CORE ==================
+def read_input_links():
+    if not os.path.exists(INPUT_FILE):
+        print("[Error] input.txt not found")
+        return []
+    with open(INPUT_FILE, "r", encoding="utf-8") as f:
+        return [line.strip() for line in f if line.strip()]
+
+def fetch_and_process(url):
+    try:
+        r = requests.get(url, timeout=30)
+        r.raise_for_status()
+        content = r.text
+    except Exception as e:
+        print(f"[Skip] Failed to fetch {url} -> {e}")
+        return None
+
+    configs = []
+    for line in content.splitlines():
+        fixed = normalize(line)
+        if fixed:
+            configs.append(fixed)
+
+    if not configs:
+        return None
+
+    joined = "\n".join(configs)
+    return base64.b64encode(joined.encode()).decode()
+
+# ================== RUN ==================
+def main():
+    # پاکسازی خروجی قبل از شروع
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as out:
+        out.write("")
+
+    links = read_input_links()
+    if not links:
+        print("[Error] No subscription links found")
+        return
+
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as out:
+        for idx, link in enumerate(links, start=1):
+            result = fetch_and_process(link)
+            if not result:
+                print(f"[Skip] Subscription {idx} invalid")
+                continue
+
+            out.write(f"===== SUBSCRIPTION {idx} =====\n")
+            out.write(result + "\n\n")
+            print(f"[✓] Subscription {idx} processed")
+
+if __name__ == "__main__":
+    main()
