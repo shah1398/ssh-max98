@@ -1,0 +1,21 @@
+name: Auto Pin & Base64
+
+on:
+  schedule:
+    - cron: '*/12 * * * *'   # هر 12 ساعت (یا 24 ساعته خودت تغییر بده)
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - run: python3 pin_and_base64.py
+      - run: |
+          git config user.name "bot"
+          git config user.email "bot@github"
+          git add .
+          git commit -m "auto update" || echo "no change"
+          git push
