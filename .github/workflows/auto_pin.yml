@@ -1,4 +1,4 @@
-name: Auto Pin & Base64
+name: Auto Pin & Base
 
 on:
   schedule:
@@ -12,7 +12,7 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
-      - run: python3 pin_and_base64.py
+      - run: python3 pin_and_base.py
       - run: |
           git config user.name "bot"
           git config user.email "bot@github"
