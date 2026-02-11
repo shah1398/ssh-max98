@@ -2,7 +2,7 @@ name: Auto Run Base64 Builder
 
 on:
   schedule:
-    - cron: '*/1 * * * *'  
+    - cron: '0 */10 * * *'  
 
   workflow_dispatch:      
 
