@@ -1,4 +1,4 @@
-name: Auto Run Base64 Builder
+name: Base64 
 
 on:
   schedule:
