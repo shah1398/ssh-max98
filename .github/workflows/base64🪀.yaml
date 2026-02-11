@@ -23,9 +23,9 @@ jobs:
         run: |
           pip install requests
 
-      - name: Run base.txt
+      - name: Run base.py
         run: |
-          python base.txt
+          python base.py
 
       - name: Commit all output files
         run: |
