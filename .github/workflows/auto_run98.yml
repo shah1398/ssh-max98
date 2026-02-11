@@ -1,8 +1,8 @@
-name: auto-run
+name: auto-run98
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "0 */5 * * *"
   workflow_dispatch:
 
 jobs:
