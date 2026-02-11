@@ -2,7 +2,7 @@ name: Auto Pin & Base
 
 on:
   schedule:
-    - cron: '*/12 * * * *'   # هر 12 ساعت (یا 24 ساعته خودت تغییر بده)
+    
 
 jobs:
   run:
