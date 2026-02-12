@@ -1,141 +1,101 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
-import json
-import base64
 import requests
-from collections import defaultdict
+import base64
+import threading
+import urllib.parse
+import socket
 
-# ================== PATHS ==================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-INPUT_FILE = os.path.join(BASE_DIR, "input.txt")
-OUTPUT_FILE = os.path.join(BASE_DIR, "base64.txt")
+# ===================== مسیر فایل‌ها =====================
+INPUT_FILE = "input.txt"
+OUTPUT_FILE = "base64.txt"
 
-# ================== HELPERS ==================
-def b64e(s: str) -> str:
-    return base64.b64encode(s.encode()).decode()
+# ===================== توابع =====================
 
-def fix_vmess(link):
+def fetch_url(url):
+    """خواندن محتوا از لینک با timeout و کنترل خطا"""
     try:
-        raw = link.replace("vmess://", "")
-        j = json.loads(base64.b64decode(raw + "===").decode())
-        clean = json.dumps(j, separators=(",", ":"))
-        return "vmess://" + b64e(clean)
-    except Exception:
+        r = requests.get(url, timeout=15)
+        if r.status_code == 200:
+            return r.text.strip()
+    except Exception as e:
+        print(f"[⚠️] Cannot fetch {url}: {e}")
+    return None
+
+def safe_base64_encode(text):
+    """تبدیل متن به Base64 استاندارد"""
+    try:
+        return base64.b64encode(text.encode('utf-8')).decode('utf-8')
+    except Exception as e:
+        print(f"[⚠️] Base64 encode error: {e}")
         return None
 
-def fix_ss(link):
-    try:
-        raw = link.replace("ss://", "").split("#")[0]
-        base64.b64decode(raw + "===")
-        return "ss://" + raw
-    except Exception:
-        try:
-            return "ss://" + b64e(raw)
-        except Exception:
-            return None
-
-def normalize(line):
+def is_valid_line(line):
+    """بررسی خط خراب یا ناقص"""
     line = line.strip()
-    if not line:
-        return None, None
+    if not line or len(line) < 5:
+        return False
+    lower = line.lower()
+    if "pin=0" in lower or "pin=red" in lower or "pin=قرمز" in lower:
+        return False
+    return True
 
-    if line.startswith("vmess://"):
-        return "vmess", fix_vmess(line)
-    if line.startswith("ss://"):
-        return "ss", fix_ss(line)
-    if line.startswith("vless://"):
-        return "vless", line
-    if line.startswith("trojan://"):
-        return "trojan", line
-    if line.startswith("hysteria://"):
-        return "hysteria", line
-    if line.startswith("hysteria2://"):
-        return "hysteria2", line
-    if line.startswith("tuic://"):
-        return "tuic", line
-    if line.startswith("socks://"):
-        return "socks", line
-    if line.startswith("http://") or line.startswith("https://"):
-        return "http", line
-    return None, None
-
-# ================== CORE ==================
-def read_input_links():
-    if not os.path.exists(INPUT_FILE):
-        print("[Error] input.txt not found")
-        return []
-    with open(INPUT_FILE, "r", encoding="utf-8") as f:
-        return [line.strip() for line in f if line.strip()]
-
-def fetch_subscription(url):
+def parse_line(line):
+    """تبدیل لینک یا خط به فرمت استاندارد قبل Base64"""
     try:
-        r = requests.get(url, timeout=30)
-        r.raise_for_status()
-        return r.text.splitlines()
-    except Exception as e:
-        print(f"[Skip] Failed to fetch {url} -> {e}")
-        return []
+        decoded = urllib.parse.unquote(line.strip())
+        return decoded
+    except:
+        return None
 
-# ================== RUN ==================
-def main():
-    # پاکسازی همه خروجی‌ها
-    for f in os.listdir(BASE_DIR):
-        if f.startswith("base64") and f.endswith(".txt"):
-            open(os.path.join(BASE_DIR, f), "w", encoding="utf-8").close()
-        elif f.endswith(".txt") and f not in ["input.txt", "base.txt"]:
-            open(os.path.join(BASE_DIR, f), "w", encoding="utf-8").close()
-
-    # دیکشنری برای دسته‌بندی پروتکل‌ها
-    protocols_dict = defaultdict(list)
-
-    links = read_input_links()
-    if not links:
-        print("[Error] No subscription links found")
-        return
-
-    for idx, link in enumerate(links, start=1):
-        lines = fetch_subscription(link)
-        processed_lines = []
-        count_valid = 0
-
+def process_link(link, results):
+    content = fetch_url(link)
+    if content:
+        lines = content.splitlines()
         for line in lines:
-            proto, norm = normalize(line)
-            if norm:
-                processed_lines.append(norm)
-                protocols_dict[proto].append(norm)
-                count_valid += 1
+            if not is_valid_line(line):
+                continue
+            parsed = parse_line(line)
+            if parsed:
+                encoded = safe_base64_encode(parsed)
+                if encoded:
+                    results.append(encoded)
 
-        if not processed_lines:
-            print(f"[Skip] Subscription {idx} invalid or empty")
-            continue
+def main():
+    # ریست کردن فایل خروجی
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        f.write("")
 
-        # Base64 ساب
-        raw_text = "\n".join(processed_lines)
-        b64_text = base64.b64encode(raw_text.encode()).decode()
+    # خواندن لینک‌ها از input.txt
+    links = []
+    if os.path.exists(INPUT_FILE):
+        with open(INPUT_FILE, "r", encoding="utf-8") as f:
+            links.extend([line.strip() for line in f if line.strip()])
 
-        # نوشتن در فایل اصلی
-        with open(OUTPUT_FILE, "a", encoding="utf-8") as out:
-            out.write(f"===== SUBSCRIPTION {idx} =====\n")
-            out.write(b64_text + "\n\n")
+    print(f"[*] Total sources to fetch: {len(links)}")
 
-        # فایل جدا برای ساب
-        sub_file = os.path.join(BASE_DIR, f"base64_{idx}.txt")
-        with open(sub_file, "w", encoding="utf-8") as f:
-            f.write(b64_text)
+    results = []
+    threads = []
 
-        print(f"[✓] Subscription {idx} processed ({count_valid} configs)")
+    for link in links:
+        t = threading.Thread(target=process_link, args=(link, results))
+        threads.append(t)
+        t.start()
 
-    # دسته‌بندی پروتکل‌ها و ذخیره جداگانه
-    for proto, lines in protocols_dict.items():
-        proto_file = os.path.join(BASE_DIR, f"{proto}.txt")
-        if lines:
-            joined = "\n".join(lines)
-            b64_proto = base64.b64encode(joined.encode()).decode()
-            with open(proto_file, "w", encoding="utf-8") as f:
-                f.write(b64_proto)
-            print(f"[✓] Protocol {proto} saved ({len(lines)} configs)")
+    for t in threads:
+        t.join()
 
-    print("[✓] All done.")
+    # حذف خطوط تکراری
+    final_results = list(dict.fromkeys(results))
+
+    # ذخیره نهایی
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        f.write("\n".join(final_results))
+
+    print(f"[✅] Done. Total valid Base64 lines: {len(final_results)}")
+    print(f"  -> Output saved to {OUTPUT_FILE}")
 
 if __name__ == "__main__":
     main()
