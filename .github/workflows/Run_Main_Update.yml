@@ -1,0 +1,39 @@
+name: Run Main Update
+
+on:
+  schedule:
+    - cron: "*/12 * * * *"  # هر 3 ساعت اجرا
+  workflow_dispatch:        # امکان اجرای دستی
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Clear previous outputs
+        run: |
+          if [ -d output ]; then rm -rf output; fi
+          mkdir -p output
+
+      - name: run
+        run: |
+          echo "Running main.py"
+          python main.py
+
+      - name: List output files
+        run: |
+          echo "Output files:"
+          ls -lah output/
