@@ -1,4 +1,4 @@
-name: Run Main Update
+name: Main2.py
 
 on:
   schedule:
@@ -31,7 +31,7 @@ jobs:
       - name: run
         run: |
           echo "Running main2.py"
-          python main.py
+          python main2.py
 
       - name: List output files
         run: |
