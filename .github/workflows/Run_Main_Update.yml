@@ -30,7 +30,7 @@ jobs:
 
       - name: run
         run: |
-          echo "Running main.py"
+          echo "Running main2.py"
           python main.py
 
       - name: List output files
