@@ -2,7 +2,7 @@ name: Run Main Update
 
 on:
   schedule:
-    - cron: "0 */12 * * *"  # هر 3 ساعت اجرا
+    - cron: "0 */5 * * *"  # هر 3 ساعت اجرا
   workflow_dispatch:        # امکان اجرای دستی
 
 jobs:
