@@ -6,9 +6,15 @@ import os
 # لینک‌ها به صورت مستقیم داخل کد
 # ==========================
 input_links = [
-    "https://example.com/link1",
-    "https://example.com/link2",
-    # لینک‌های خودت رو اینجا اضافه کن
+    "https://bnb-20.ahsan-tepo1383online.workers.dev/sub/normal/%40eIeesh.fkQJ0O-Y#%F0%9F%92%A6%20BPB%20Normal",
+    "https://shah-2879.almasi-ali98.workers.dev/panel/sub#sub7",
+    "https://raw.githubusercontent.com/shah1398/Sub_Checker/main/final.txt",
+    "https://almasi.ahsan-tepo1383online.workers.dev/sab/sub",
+    "https://raw.githubusercontent.com/hamedp-71/v2go_NEW/main/Splitted-By-Protocol/hy2.txt",
+    "https://zaya.io/Hp71-v2",
+    "https://raw.githubusercontent.com/sinavm/SVM/refs/heads/main/subscriptions/xray/normal/mix",
+    "https://raw.githubusercontent.com/parvinxs/Fssociety/refs/heads/main/Fssociety.sub"
+    
 ]
 
 OUTPUT_FILE = "base64.txt"
