@@ -2,7 +2,7 @@ name: Update main
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # هر 2 ساعت اجرا می‌شود
+    - cron: '*/5 * * * *'  # هر 2 ساعت اجرا می‌شود
   workflow_dispatch:  # امکان اجرای دستی هم هست
 
 jobs:
