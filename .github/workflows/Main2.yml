@@ -1,0 +1,32 @@
+name: tepo
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/7 * * * *"   # هر ۲ ساعت اجرا شود
+
+permissions:
+  contents: write
+
+jobs:
+  update-base:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+      - run: pip install requests || echo "skip install"
+      - run: |
+          rm -f base64.txt
+          python main2.py || echo "❌ main2.py failed"
+      - run: |
+          if [[ -s base64.txt ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add base64.txt
+            git commit -m "Auto update Base64 subscriptions [skip ci]" || echo "No changes"
+            git push || echo "skip push"
+          else
+            echo "⚠️ base64.txt خالی یا موجود نیست، commit نشد"
