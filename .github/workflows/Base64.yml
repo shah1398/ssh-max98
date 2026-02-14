@@ -2,7 +2,7 @@ name: Update Base64 Subscription
 
 on:
   schedule:
-    - cron: '0 */5 * * *'  # هر ۵ ساعت اجرا می‌شود
+    - cron: '*/5 * * * *'  # هر ۵ ساعت اجرا می‌شود
   workflow_dispatch:
 
 jobs:
