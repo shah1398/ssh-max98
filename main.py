@@ -1,150 +1,131 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-import re
 import os
-import base64
-import shutil
-import logging
 import requests
-from pathlib import Path
-from ping3 import ping
+import base64
+import threading
+import urllib.parse
 
-# ================= CONFIG =================
+# ===================== مسیر فایل‌ها =====================
 INPUT_FILE = "input.txt"
-PING_DIR = Path("ping")
-BASE64_DIR = Path("base64")
-LOG_DIR = Path("logs")
+OUTPUT_DIR = "base64"  # پوشه‌ای که فایل‌ها داخل آن ذخیره می‌شود
+MIX_FILE = "base64/mix.txt"  # فایل نهایی mix که تمام داده‌ها در آن ذخیره می‌شود
 
-PING_COUNT = 3
-TIMEOUT = 1
-GOOD_MS = 150
-WARN_MS = 300
-MAX_PER_SUB = 1000
+# ===================== توابع =====================
 
-PROTOCOLS = {
-    "vless://": "vless",
-    "trojan://": "trojan",
-    "ss://": "ss",
-    "hysteria": "hysteria",
-    "tuic://": "tuic",
-}
-
-# ================= INIT =================
-def reset_all():
-    """پاک کردن پوشه‌ها و آماده‌سازی"""
-    for d in [PING_DIR, BASE64_DIR, LOG_DIR]:
-        if d.exists():
-            shutil.rmtree(d)
-        d.mkdir(parents=True, exist_ok=True)
-
-reset_all()
-
-logging.basicConfig(
-    filename=LOG_DIR / "run.log",
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-)
-
-logging.info("=== START RUN ===")
-
-# ================= HELPERS =================
-def extract_host(cfg: str):
-    m = re.search(r"@([^:/?#]+)", cfg)
-    if m:
-        return m.group(1)
-    m = re.search(r"://([^:/?#]+)", cfg)
-    return m.group(1) if m else None
-
-def avg_ping(host):
-    results = []
-    for _ in range(PING_COUNT):
-        try:
-            r = ping(host, timeout=TIMEOUT, unit="ms")
-            if r:
-                results.append(r)
-        except:
-            continue
-    return sum(results)/len(results) if results else None
-
-def classify(ms):
-    if ms is None:
-        return "bad"
-    if ms <= GOOD_MS:
-        return "good"
-    if ms <= WARN_MS:
-        return "warn"
-    return "bad"
-
-def to_base64(text: str):
-    return base64.b64encode(text.encode()).decode()
-
-def save(path, data):
-    if data:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write("\n".join(data))
-
-# ================= MAIN =================
-try:
-    with open(INPUT_FILE, "r", encoding="utf-8") as f:
-        subs = [l.strip() for l in f if l.strip()]
-except FileNotFoundError:
-    logging.error(f"{INPUT_FILE} not found!")
-    exit("Input file not found!")
-
-for idx, sub_url in enumerate(subs, 1):
-    sub_name = f"sub{idx}"
-    ping_sub = PING_DIR / sub_name
-    base64_sub = BASE64_DIR / sub_name
-    ping_sub.mkdir()
-    base64_sub.mkdir()
-
+def fetch_url(url):
+    """خواندن محتوا از لینک با timeout و کنترل خطا"""
     try:
-        raw = requests.get(sub_url, timeout=20).text.splitlines()
+        r = requests.get(url, timeout=15)
+        if r.status_code == 200:
+            return r.text.strip()
     except Exception as e:
-        logging.error(f"Sub {idx} download failed: {e}")
-        continue
+        print(f"[⚠️] Cannot fetch {url}: {e}")
+    return None
 
-    raw = list(dict.fromkeys(raw))  # حذف تکراری‌ها
+def safe_base64_encode(text):
+    """تبدیل متن به Base64 استاندارد"""
+    try:
+        return base64.b64encode(text.encode('utf-8')).decode('utf-8')
+    except Exception as e:
+        print(f"[⚠️] Base64 encode error: {e}")
+        return None
 
-    good, warn = [], []
-    proto_map = {v: [] for v in PROTOCOLS.values()}
+def is_valid_line(line):
+    """بررسی خط خراب یا ناقص"""
+    line = line.strip()
+    if not line or len(line) < 5:
+        return False
+    lower = line.lower()
+    if "pin=0" in lower or "pin=red" in lower or "pin=قرمز" in lower:
+        return False
+    return True
 
-    for cfg in raw:
-        host = extract_host(cfg)
-        if not host:
-            continue
+def parse_line(line):
+    """تبدیل لینک یا خط به فرمت استاندارد قبل Base64"""
+    try:
+        decoded = urllib.parse.unquote(line.strip())
+        return decoded
+    except:
+        return None
 
-        ms = avg_ping(host)
-        status = classify(ms)
+def process_link(link, results):
+    """خواندن لینک و تبدیل آن به Base64"""
+    content = fetch_url(link)
+    if content:
+        lines = content.splitlines()
+        for line in lines:
+            if not is_valid_line(line):
+                continue
+            parsed = parse_line(line)
+            if parsed:
+                encoded = safe_base64_encode(parsed)
+                if encoded:
+                    results.append(encoded)
 
-        if status == "good":
-            good.append(cfg)
-        elif status == "warn":
-            warn.append(cfg)
+def save_to_file(filename, content):
+    """ذخیره محتوا در فایل با نام مشخص"""
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(content)
+        print(f"[✔] {filename} saved")
 
-        if status in ("good", "warn"):
-            for p, name in PROTOCOLS.items():
-                if cfg.startswith(p):
-                    proto_map[name].append(cfg)
+def get_filename_from_link(link):
+    """گرفتن نام فایل از آخرین بخش لینک"""
+    # استخراج آخرین بخش URL
+    filename = link.split("/")[-1]
+    
+    # بررسی اینکه آیا پسوند txt دارد یا نه
+    if '.' in filename:
+        name, ext = filename.rsplit('.', 1)  # جدا کردن نام و پسوند
+        if ext != "txt":  # اگر پسوند غیر از txt بود، آن را به .txt تغییر می‌دهیم
+            return f"{name}.txt"
+        else:
+            return filename  # اگر پسوند txt داشت، همان را استفاده می‌کنیم
+    else:
+        return f"{filename}.txt"  # اگر پسوند نداشت، .txt به نام اضافه می‌شود
 
-    final_cfgs = (good + warn)[:MAX_PER_SUB]
+def process_subs(links):
+    """پردازش تمام لینک‌ها و ساخت فایل‌ها"""
+    results = []
+    threads = []
 
-    # ذخیره خروجی پین
-    save(ping_sub / "all.txt", final_cfgs)
-    save(ping_sub / "good.txt", good)
-    save(ping_sub / "warn.txt", warn)
-    for proto, data in proto_map.items():
-        save(ping_sub / f"{proto}.txt", data)
+    # پردازش لینک‌ها به صورت موازی
+    for link in links:
+        t = threading.Thread(target=process_link, args=(link, results))
+        threads.append(t)
+        t.start()
 
-    # تبدیل Base64
-    for txt in ping_sub.glob("*.txt"):
-        content = txt.read_text(encoding="utf-8")
-        if content.strip():
-            out = base64_sub / f"{txt.stem}_base64.txt"
-            out.write_text(to_base64(content), encoding="utf-8")
+    for t in threads:
+        t.join()
 
-    logging.info(f"Sub {idx}: total={len(raw)} good={len(good)} warn={len(warn)} final={len(final_cfgs)}")
+    # حذف خطوط تکراری
+    final_results = list(dict.fromkeys(results))
 
-logging.info("=== END RUN ===")
-print("Run completed successfully!")
+    # بررسی و ساخت پوشه base64 در صورت عدم وجود
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
+
+    # ذخیره فایل‌ها
+    for result in final_results:
+        filename = get_filename_from_link(result)
+        file_path = os.path.join(OUTPUT_DIR, filename)
+        # ذخیره هر ساب در فایل مربوطه
+        save_to_file(file_path, result)
+
+    # ساخت فایل mix.txt که شامل تمام داده‌ها باشد
+    with open(MIX_FILE, "w", encoding="utf-8") as mix_file:
+        mix_file.write("\n".join(final_results))
+        print(f"[✔] {MIX_FILE} saved")
+
+# ===================== اجرای اصلی کد =====================
+if __name__ == "__main__":
+    # خواندن لینک‌ها از فایل input.txt
+    links = []
+    if os.path.exists(INPUT_FILE):
+        with open(INPUT_FILE, "r", encoding="utf-8") as f:
+            links.extend([line.strip() for line in f if line.strip()])
+
+    print(f"[*] Total sources to fetch: {len(links)}")
+
+    # پردازش ساب‌ها و ذخیره فایل‌ها
+    process_subs(links)
+
+    print("[✅] All subs processed successfully.")
